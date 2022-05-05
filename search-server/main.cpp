@@ -1,7 +1,4 @@
 // search_server_s1_t2_v2.cpp
-/* P.S.: Проанализировал авторское решение этого задания, оно действительно в разы изящнее моего. 
-По правде говоря, не догадался до захвата в лямбду переменной DocumentStatus. Отправляю в том виде, в котором
-решил сам. */
 
 #include <algorithm>
 #include <cmath>
@@ -11,10 +8,12 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <numeric>
 
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double DELTA = 1e-6;
 
 string ReadLine() {
     string s;
@@ -84,14 +83,14 @@ public:
             });
     }
 
-    template <typename CheckStatus>
-    vector<Document> FindTopDocuments(const string& raw_query, CheckStatus сheck_status) const {
+    template <typename FilteringParameter>
+    vector<Document> FindTopDocuments(const string& raw_query, FilteringParameter filtering_parameter) const {
         const Query query = ParseQuery(raw_query);
 
-        vector<Document> matched_documents = FindAllDocuments(query, сheck_status);
+        vector<Document> matched_documents = FindAllDocuments(query, filtering_parameter);
         sort(matched_documents.begin(), matched_documents.end(),
             [](const Document& lhs, const Document& rhs) {
-                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < DELTA) {
                     return lhs.rating > rhs.rating;
                 }
                 else {
@@ -110,16 +109,7 @@ public:
     }
 
     vector<Document> FindTopDocuments(const string& raw_query, const DocumentStatus& status) const {
-        switch (status) {
-        case DocumentStatus::ACTUAL:
-            return FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; });
-        case DocumentStatus::IRRELEVANT:
-            return FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::IRRELEVANT; });
-        case DocumentStatus::BANNED:
-            return FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::BANNED; });
-        default:
-            return FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::REMOVED; });
-        }
+        return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus status_document, int rating) { return status_document == status; });
     }
 
     int GetDocumentCount() const {
@@ -177,10 +167,7 @@ private:
         if (ratings.empty()) {
             return 0;
         }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
         return rating_sum / static_cast<int>(ratings.size());
     }
 
@@ -230,8 +217,8 @@ private:
         return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
     }
 
-    template <typename CheckStatus>
-    vector<Document> FindAllDocuments(const Query& query, CheckStatus check_status) const {
+    template <typename FilteringParameter>
+    vector<Document> FindAllDocuments(const Query& query, FilteringParameter filtering_parameter) const {
         map<int, double> document_to_relevance;
         for (const string& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
@@ -239,7 +226,8 @@ private:
             }
             const double inverse_document_freq = ComputeWordInverseDocumentFreq(word);
             for (const auto [document_id, term_freq] : word_to_document_freqs_.at(word)) {
-                if (check_status(document_id, documents_.at(document_id).status, documents_.at(document_id).rating)) {
+                const DocumentData current_document = documents_.at(document_id);
+                if (filtering_parameter(document_id, current_document.status, current_document.rating)) {
                     document_to_relevance[document_id] += term_freq * inverse_document_freq;
                 }
             }
