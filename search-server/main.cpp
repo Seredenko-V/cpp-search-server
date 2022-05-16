@@ -1,14 +1,3 @@
-//#include "search_server.h"
-#include <algorithm>
-#include <cmath>
-#include <map>
-#include <set>
-#include <string>
-#include <utility>
-#include <vector>
-
-using namespace std;
-
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -344,6 +333,7 @@ void AssertImpl(bool value, const string& expr_str, const string& file, const st
 
 template <typename TestFunc>
 void RunTestImpl(const TestFunc& foo, const string& func_name) {
+    foo(); // запуск теста
     cerr << func_name << " OK"s << endl;
 }
 
@@ -421,35 +411,37 @@ void TestMatchDocument() {
     работает корректно без минус-слов в запросе */
     {
         string query = "cat in the city"s;
-        const auto matched_documents = server.MatchDocument(query, doc_id[0]);
+        //const auto matched_documents = server.MatchDocument(query, doc_id[0]);
+        const auto& [words_doc, status_doc] = server.MatchDocument(query, doc_id[0]);
         vector<string> result_matched = { "cat"s, "city"s };
-        ASSERT_EQUAL(get<0>(matched_documents), result_matched);
+        ASSERT_EQUAL(words_doc, result_matched);
     }
     /* Убеждаемся, что возврат совпадающих слов запроса со словами документа
     работает корректно при наличии минус-слов в запросе */
     {
         string query = "-dog on the street"s;
-        const auto matched_documents = server.MatchDocument(query, doc_id[1]);
+        const auto& [words_doc, status_doc] = server.MatchDocument(query, doc_id[1]);
         vector<string> result_matched;
-        ASSERT_EQUAL(get<0>(matched_documents), result_matched);
+        ASSERT_EQUAL(words_doc, result_matched);
     }
 }
 
 // Тест проверяет корректность сортировки найденных документов по релевантности
 void TestRelevanceSorting() {
-    const vector<int> doc_id = { 1,2 };
-    const vector<string> content = { "cat on the street of the city"s, "a dog on Pushkin street"s };
+    const vector<int> doc_id = { 1,2,3 };
+    const vector<string> content = { "cat on the street of the city"s, "a dog on Pushkin street"s, "penguin in the subway"s };
     const vector<int> ratings = { 1, 2, 3 };
     SearchServer server;
     server.SetStopWords("a on of in the"s);
     server.AddDocument(doc_id[0], content[0], DocumentStatus::ACTUAL, ratings);
     server.AddDocument(doc_id[1], content[1], DocumentStatus::ACTUAL, ratings);
+    server.AddDocument(doc_id[2], content[2], DocumentStatus::ACTUAL, ratings);
     const vector<Document> found_docs = server.FindTopDocuments("cat on the street"s);
     ASSERT_EQUAL(found_docs.size(), 2u);
     ASSERT(found_docs[0].relevance > found_docs[1].relevance);
-    /* Проверка корректности порядка записи документов */
-    ASSERT_EQUAL(found_docs[0].id, doc_id[0]);
-    ASSERT_EQUAL(found_docs[1].id, doc_id[1]);
+    double real_relevance = (log(server.GetDocumentCount() * 1.0 / 1) * (1.0 / 3))
+        + (log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 3));
+    ASSERT(abs(found_docs[0].relevance - real_relevance) <= DELTA);
 }
 
 // Тест проверяет корректность вычисления среднего рейтинга документов
@@ -463,7 +455,7 @@ void TestCalculatingRating() {
     server.AddDocument(doc_id[1], content[1], DocumentStatus::ACTUAL, ratings[1]);
     const vector<Document> found_docs = server.FindTopDocuments("cat on the street"s);
     ASSERT(found_docs[0].rating < found_docs[1].rating);
-    ASSERT_EQUAL(found_docs[0].rating, 2);
+    ASSERT_EQUAL(found_docs[0].rating, (1 + 2 + 3) / 3); // необязательна, для личного успокоения
 }
 
 // Тест проверяет корректность фильтрации поиска в соответствие предикату
@@ -517,7 +509,7 @@ void TestCalculatingRelevance() {
     server.AddDocument(doc_id[0], content[0], DocumentStatus::ACTUAL, ratings[0]);
     server.AddDocument(doc_id[1], content[1], DocumentStatus::ACTUAL, ratings[1]);
     const vector<Document> found_docs = server.FindTopDocuments("cat on the street"s);
-    ASSERT(abs(found_docs[0].relevance - 0.462098) <= DELTA);
+    ASSERT(abs(found_docs[0].relevance - (log(server.GetDocumentCount() * 1.0 / 1) * (2.0 / 3))) <= DELTA);
 }
 
 // Функция TestSearchServer является точкой входа для запуска тестов
