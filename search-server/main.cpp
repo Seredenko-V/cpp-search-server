@@ -1,3 +1,6 @@
+// Иронично, что я некоторые замчания уже исправлял, например, константу и accumulate. 
+// Но потом взял из тренажера код и начал работать с ним :(
+// ВОПРОС: зачем писать минус-слово в запросе, если пользователь изначально не хочет его там видеть?
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -6,11 +9,13 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <numeric>
 #include <stdexcept>
 
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double DELTA = 1e-6;
 
 string ReadLine() {
     string s;
@@ -34,8 +39,7 @@ vector<string> SplitIntoWords(const string& text) {
                 words.push_back(word);
                 word.clear();
             }
-        }
-        else {
+        } else {
             word += c;
         }
     }
@@ -85,7 +89,7 @@ public:
         : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
         for (const auto& word : stop_words) {
             if (!IsValidWord(word)) {
-                throw invalid_argument("Стоп-слова содержат недопустимые символы."s);
+                throw invalid_argument("Стоп-слово \""s + word + "\" содержит недопустимые символы."s);
             }
         }
     }
@@ -96,8 +100,12 @@ public:
     }
 
     void AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings) {
-        if (documents_.count(document_id) > 0 || document_id < 0 || !IsValidWord(document)) {
-            throw invalid_argument("Введены некорректные параметры документа."s);
+        if (documents_.count(document_id) > 0) {
+            throw invalid_argument("Документ с таким id уже существует."s);
+        } else if (document_id < 0) {
+            throw invalid_argument("Документ не может иметь отрицательный id."s);
+        } else if (!IsValidWord(document)) {
+            throw invalid_argument("Содержимое документа содержит недопустимые символы"s);
         }
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
@@ -112,14 +120,13 @@ public:
     vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate) const {
         const Query query = ParseQuery(raw_query);
         if (!IsValidWord(raw_query)) {
-            throw invalid_argument("Некорректный запрос.");
+            throw invalid_argument("Содержимое запроса содержит недопустимые символы"s);
         }
         vector<Document> matched_documents = FindAllDocuments(query, document_predicate);
         sort(matched_documents.begin(), matched_documents.end(), [](const Document& lhs, const Document& rhs) {
-            if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+            if (abs(lhs.relevance - rhs.relevance) < DELTA) {
                 return lhs.rating > rhs.rating;
-            }
-            else {
+            } else {
                 return lhs.relevance > rhs.relevance;
             }
             });
@@ -204,10 +211,7 @@ private:
         if (ratings.empty()) {
             return 0;
         }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
         return rating_sum / static_cast<int>(ratings.size());
     }
 
@@ -220,9 +224,12 @@ private:
     QueryWord ParseQueryWord(string text) const {
         bool is_minus = false;
         // Word shouldn't be empty
+        if (text.empty()) {
+            throw invalid_argument("Присутствует пустое слово в запросе.");
+        }
         if (text[0] == '-') {
             if (text[1] == '-') {
-                throw invalid_argument("Некорректный запрос.");
+                throw invalid_argument("Запрос содержит два знака \"-\" подряд.");
             }
             is_minus = true;
             text = text.substr(1);
@@ -239,14 +246,13 @@ private:
         Query query;
         for (const string& word : SplitIntoWords(text)) {
             if (word == "-"s) {
-                throw invalid_argument("Некорректный запрос.");
+                throw invalid_argument("После знака \"-\" отсутствует слово.");
             }
             QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
                     query.minus_words.insert(query_word.data);
-                }
-                else {
+                } else {
                     query.plus_words.insert(query_word.data);
                 }
             }
@@ -323,8 +329,7 @@ void AddDocument(SearchServer& search_server, int document_id, const string& doc
     const vector<int>& ratings) {
     try {
         search_server.AddDocument(document_id, document, status, ratings);
-    }
-    catch (const exception& e) {
+    } catch (const exception& e) {
         cout << "Ошибка добавления документа "s << document_id << ": "s << e.what() << endl;
     }
 }
@@ -335,8 +340,7 @@ void FindTopDocuments(const SearchServer& search_server, const string& raw_query
         for (const Document& document : search_server.FindTopDocuments(raw_query)) {
             PrintDocument(document);
         }
-    }
-    catch (const exception& e) {
+    } catch (const exception& e) {
         cout << "Ошибка поиска: "s << e.what() << endl;
     }
 }
@@ -350,29 +354,31 @@ void MatchDocuments(const SearchServer& search_server, const string& query) {
             const auto [words, status] = search_server.MatchDocument(query, document_id);
             PrintMatchDocumentResult(document_id, words, status);
         }
-    }
-    catch (const exception& e) {
+    } catch (const exception& e) {
         cout << "Ошибка матчинга документов на запрос "s << query << ": "s << e.what() << endl;
     }
 }
 
 int main() {
     setlocale(LC_ALL, "ru");
-    SearchServer search_server("и в на"s);
+    try {
+        SearchServer search_server("и в на"s);
+        AddDocument(search_server, 1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
+        AddDocument(search_server, 1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, { 1, 2 });
+        AddDocument(search_server, -1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, { 1, 2 });
+        AddDocument(search_server, 3, "большой пёс скво\x12рец евгений"s, DocumentStatus::ACTUAL, { 1, 3, 2 });
+        AddDocument(search_server, 4, "большой пёс скворец евгений"s, DocumentStatus::ACTUAL, { 1, 1, 1 });
 
-    AddDocument(search_server, 1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
-    AddDocument(search_server, 1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, { 1, 2 });
-    AddDocument(search_server, -1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, { 1, 2 });
-    AddDocument(search_server, 3, "большой пёс скво\x12рец евгений"s, DocumentStatus::ACTUAL, { 1, 3, 2 });
-    AddDocument(search_server, 4, "большой пёс скворец евгений"s, DocumentStatus::ACTUAL, { 1, 1, 1 });
+        FindTopDocuments(search_server, "пушистый -пёс"s);
+        FindTopDocuments(search_server, "пушистый --кот"s);
+        FindTopDocuments(search_server, "пушистый -"s);
 
-    FindTopDocuments(search_server, "пушистый -пёс"s);
-    FindTopDocuments(search_server, "пушистый --кот"s);
-    FindTopDocuments(search_server, "пушистый -"s);
-
-    MatchDocuments(search_server, "пушистый пёс"s);
-    MatchDocuments(search_server, "модный -кот"s);
-    MatchDocuments(search_server, "модный --пёс"s);
-    MatchDocuments(search_server, "пушистый - хвост"s);
+        MatchDocuments(search_server, "пушистый пёс"s);
+        MatchDocuments(search_server, "модный -кот"s);
+        MatchDocuments(search_server, "модный --пёс"s);
+        MatchDocuments(search_server, "пушистый - хвост"s);
+    } catch (const exception& e) {
+        cout << "Ошибка при создании поискового сервера: "s << e.what() << endl;
+    }
     return 0;
 }
