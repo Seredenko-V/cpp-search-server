@@ -20,15 +20,18 @@ public:
     SearchServer(const StringContainer& stop_words);
     // Invoke delegating constructor from string container
     explicit SearchServer(const std::string& stop_words_text);
+
     void AddDocument(int document_id, const std::string& document, DocumentStatus status, 
         const std::vector<int>& ratings);
+
     template <typename DocumentPredicate>
     std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentPredicate document_predicate) const;
     std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentStatus status) const;
     std::vector<Document> FindTopDocuments(const std::string& raw_query) const;
-    int GetDocumentCount() const;
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, 
         int document_id) const;
+
+    int GetDocumentCount() const;
     int GetDocumentId(int serial_number) const;
 
 private:
@@ -61,8 +64,10 @@ private:
     Query ParseQuery(const std::string& text) const;
     // Existence required
     double ComputeWordInverseDocumentFreq(const std::string& word) const;
+
     template <typename DocumentPredicate>
     std::vector<Document> FindAllDocuments(const Query& query, DocumentPredicate document_predicate) const;
+
     static bool IsValidWord(const std::string& word);
 };
 

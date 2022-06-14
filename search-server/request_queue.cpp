@@ -29,7 +29,7 @@ void RequestQueue::SearchResults(const string& raw_query, vector<Document>& resu
             --nothing_was_found_;
         }
     }
-    requests_.push_back({ raw_query, result_find });
+    requests_.push_back({ result_find.size() });
     if (result_find.empty()) {
         ++nothing_was_found_;
     }

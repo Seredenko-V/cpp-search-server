@@ -14,12 +14,12 @@ public:
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate);
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentStatus status);
     std::vector<Document> AddFindRequest(const std::string& raw_query);
+
     int GetNoResultRequests() const;
 
 private:
     struct QueryResult {
-        std::string text_query;
-        std::vector<Document> documents;
+        size_t quantity_documents;
     };
     std::deque<QueryResult> requests_;
     const static time_t min_in_day_ = 1440;
