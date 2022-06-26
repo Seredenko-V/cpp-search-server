@@ -11,20 +11,21 @@ void SearchServer::AddDocument(int document_id, const string& document, Document
     const vector<int>& ratings) {
     if (documents_.count(document_id) > 0) {
         throw invalid_argument("ƒокумент с таким id уже существует."s);
-    }
-    else if (document_id < 0) {
+    } else if (document_id < 0) {
         throw invalid_argument("ƒокумент не может иметь отрицательный id."s);
-    }
-    else if (!IsValidWord(document)) {
+    } else if (!IsValidWord(document)) {
         throw invalid_argument("—одержимое документа содержит недопустимые символы"s);
     }
     const vector<string> words = SplitIntoWordsNoStop(document);
+    //words_in_documents_[document_id] = words;
     const double inv_word_count = 1.0 / words.size();
     for (const string& word : words) {
         word_to_document_freqs_[word][document_id] += inv_word_count;
+        //words_in_documents_[document_id].push_back(word);
+        word_frequencies_in_document_[document_id][word] += inv_word_count;
     }
     documents_.emplace(document_id, DocumentData{ ComputeAverageRating(ratings), status });
-    order_addition_document_.push_back(document_id);
+    order_addition_document_.insert(document_id);
 }
 
 vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query, DocumentStatus status) const {
@@ -41,7 +42,38 @@ int SearchServer::GetDocumentCount() const {
     return documents_.size();
 }
 
+const map<string, double>& SearchServer::GetWordFrequencies(int document_id) const {
+    if (!documents_.count(document_id)) {
+        return empty_;
+    }
+    return word_frequencies_in_document_.at(document_id);
+}
+
+set<int>::const_iterator SearchServer::begin() {
+    return order_addition_document_.begin();
+}
+
+set<int>::const_iterator SearchServer::end() {
+    return order_addition_document_.end();
+}
+
+void SearchServer::RemoveDocument(int document_id) {
+    if (!documents_.count(document_id)) {
+        throw invalid_argument("ƒокумента с указанным id не существует.");
+    }
+    // log(количество документов) * количество слов в удал€емом документе, 
+    // т.к. у каждого документа свой словарь
+    for (const auto& [word, freq] : word_frequencies_in_document_.at(document_id)) {
+        // log(количество слов во всех документах)
+        word_to_document_freqs_[word].erase(document_id);
+    }
+    word_frequencies_in_document_.erase(document_id);
+    documents_.erase(document_id);
+    order_addition_document_.erase(document_id);
+}
+
 tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& raw_query, int document_id) const {
+    LOG_DURATION_STREAM("MatchDocument"s, cout);
     if (document_id < 0 || !IsValidWord(raw_query)) {
         throw invalid_argument("Ќекорректный запрос.");
     }
@@ -67,12 +99,12 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& 
     return { matched_words, documents_.at(document_id).status };
 }
 
-int SearchServer::GetDocumentId(int serial_number) const {
-    if (serial_number < 0 || serial_number >= static_cast<int>(order_addition_document_.size())) {
-        throw out_of_range("Ќеверное значение индекса."s);
-    }
-    return order_addition_document_[serial_number];
-}
+//int SearchServer::GetDocumentId(int serial_number) const {
+//    if (serial_number < 0 || serial_number >= static_cast<int>(order_addition_document_.size())) {
+//        throw out_of_range("Ќеверное значение индекса."s);
+//    }
+//    return order_addition_document_[serial_number];
+//}
 
 bool SearchServer::IsStopWord(const string& word) const {
     return stop_words_.count(word) > 0;

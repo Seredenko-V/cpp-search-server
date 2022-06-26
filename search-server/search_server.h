@@ -1,6 +1,8 @@
 #pragma once
 #include "string_processing.h"
 #include "document.h"
+#include "log_duration.h"
+
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -32,17 +34,28 @@ public:
         int document_id) const;
 
     int GetDocumentCount() const;
-    int GetDocumentId(int serial_number) const;
+    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+    void RemoveDocument(int document_id);
+
+    //int GetDocumentId(int serial_number) const;
+    std::set<int>::const_iterator begin();
+    std::set<int>::const_iterator end();
 
 private:
-    std::vector<int> order_addition_document_;
+    std::set<int> order_addition_document_;
     struct DocumentData {
         int rating;
         DocumentStatus status;
     };
     const std::set<std::string> stop_words_;
+    // частота слова в каждом документе
     std::map<std::string, std::map<int, double>> word_to_document_freqs_;
     std::map<int, DocumentData> documents_;
+    // частоты каждого слова в документе
+    std::map<int, std::map<std::string, double>> word_frequencies_in_document_;
+    std::map<std::string, double> empty_;
+
+
 
     bool IsStopWord(const std::string& word) const;
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const;
@@ -83,6 +96,7 @@ SearchServer::SearchServer(const StringContainer& stop_words)
 
 template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query, DocumentPredicate document_predicate) const {
+    LOG_DURATION_STREAM("FindTopDocuments"s, std::cout);
     const Query query = ParseQuery(raw_query);
     if (!IsValidWord(raw_query)) {
         throw std::invalid_argument("Содержимое запроса содержит недопустимые символы"s);
@@ -132,5 +146,3 @@ std::vector<Document> SearchServer::FindAllDocuments(const SearchServer::Query& 
     }
     return matched_documents;
 }
-
-
