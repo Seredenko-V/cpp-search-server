@@ -89,7 +89,7 @@ SearchServer::SearchServer(const StringContainer& stop_words)
     : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
     for (const auto& word : stop_words) {
         if (!IsValidWord(word)) {
-            throw std::invalid_argument("Стоп-слово \""s + word + "\" содержит недопустимые символы."s);
+            throw std::invalid_argument("The stop word \""s + word + "\" contains invalid characters."s);
         }
     }
 }
@@ -99,7 +99,7 @@ std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_quer
     LOG_DURATION_STREAM("FindTopDocuments"s, std::cout);
     const Query query = ParseQuery(raw_query);
     if (!IsValidWord(raw_query)) {
-        throw std::invalid_argument("Содержимое запроса содержит недопустимые символы"s);
+        throw std::invalid_argument("The request content contains invalid characters."s);
     }
     std::vector<Document> matched_documents = FindAllDocuments(query, document_predicate);
     sort(matched_documents.begin(), matched_documents.end(), [](const Document& lhs, const Document& rhs) {
