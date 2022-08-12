@@ -34,9 +34,9 @@ public:
         size_t quantity_pages = static_cast<size_t>(std::ceil(static_cast<double>(distance(begin_documents,
             end_documents)) / page_size));
         pages_.reserve(quantity_pages);
-        assert(end_documents >= begin_documents && page_size > 0); // чтобы избежать возможного зацикливания
         // до (quantity_pages - 1) т.к. последняя страница может быть занята не полностью
         for (size_t i = 0; i < quantity_pages - 1; ++i) {
+            assert(end_documents >= begin_documents && page_size > 0); // чтобы избежать возможного зацикливания
             pages_.push_back(IteratorRange(begin_documents, begin_documents + page_size));
             advance(begin_documents, page_size);
         }
