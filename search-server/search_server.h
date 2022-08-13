@@ -24,44 +24,6 @@
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 const double DELTA = 1e-6;
 
-template <typename ExecutionPolicy, typename ForwardRange, typename Function>
-void ForEach(ExecutionPolicy policy, ForwardRange& range, Function function) {
-    if (range.empty()) {
-        return;
-    }
-    if constexpr ((std::is_same_v<std::decay_t<ExecutionPolicy>, std::execution::sequenced_policy>) ||
-        (std::is_same_v<typename std::iterator_traits<typename ForwardRange::iterator>::iterator_category,
-            std::random_access_iterator_tag>)) {
-        std::for_each(policy, range.begin(), range.end(), function);
-    } else {
-        size_t count_tread = std::thread::hardware_concurrency() - 1;
-        size_t number_of_tasks = static_cast<size_t>(std::ceil(range.size() / count_tread));
-        // количество элементов для одного потока
-        size_t blocks_for_threads = number_of_tasks == 0 ? number_of_tasks + 1 : number_of_tasks;
-
-        std::vector<typename ForwardRange::const_iterator> end_points;
-        end_points.reserve(count_tread);
-        size_t count = 1;
-        for (auto it = range.begin(); it != range.end(); ++it) {
-            if (count % blocks_for_threads == 0) {
-                end_points.push_back(it);
-            }
-            ++count;
-        }
-
-        std::vector<std::future<void>> work_all_thread;
-        work_all_thread.reserve(count_tread);
-        auto begin_point = range.begin();
-        for (auto end_point = end_points.begin(); end_point != end_points.end(); ++end_point) {
-            work_all_thread.push_back(std::move(std::async([begin_point, end_point, &function] {
-                std::for_each(std::execution::par, begin_point, *end_point, function);
-                })));
-            begin_point = *end_point;
-        }
-        std::for_each(std::execution::par, begin_point, range.end(), function);
-    }
-}
-
 class SearchServer {
 public:
     template <typename StringContainer>
@@ -84,12 +46,12 @@ public:
     std::vector<Document> FindTopDocuments(ExecutionPolicy policy, const std::string_view raw_query) const;
     std::vector<Document> FindTopDocuments(const std::string_view raw_query) const;
 
+    using words_and_status_document = std::tuple<std::vector<std::string_view>, DocumentStatus>;
     // Поиск интересующих слов в конкретном документе
-    std::tuple<std::vector<std::string_view>, DocumentStatus> MatchDocument(const std::string_view raw_query,
-        int document_id) const;
-    std::tuple<std::vector<std::string_view>, DocumentStatus> MatchDocument(std::execution::sequenced_policy,
+    words_and_status_document MatchDocument(const std::string_view raw_query, int document_id) const;
+    words_and_status_document MatchDocument(std::execution::sequenced_policy,
         const std::string_view raw_query, int document_id) const;
-    std::tuple<std::vector<std::string_view>, DocumentStatus> MatchDocument(std::execution::parallel_policy,
+    words_and_status_document MatchDocument(std::execution::parallel_policy,
         const std::string_view raw_query, int document_id) const;
 
     int GetDocumentCount() const;
@@ -102,6 +64,7 @@ public:
     std::set<int>::const_iterator end();
 
 private:
+
     std::set<int> order_addition_document_;
     struct DocumentData {
         int rating;
@@ -148,21 +111,16 @@ private:
 template <typename StringContainer>
 SearchServer::SearchServer(const StringContainer& stop_words)
     : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
-    //for_each(stop_words_.begin(), stop_words_.end(), [this] (const auto& word) {
-    //        if (!IsValidWord(word)) {
-    //            throw std::invalid_argument("Стоп-слово \""s + std::string(word) + "\" содержит недопустимые символы."s);
-    //        }
-    //});
-    for (const auto& word : stop_words) {
-        if (!IsValidWord(word)) {
-            throw std::invalid_argument("Стоп-слово \""s + std::string(word) + "\" содержит недопустимые символы."s);
-        }
+    bool is_valid_words = std::all_of(stop_words.begin(), stop_words.end(), [this](const auto& word) {
+        return IsValidWord(word);
+    });
+    if (!is_valid_words) {
+        throw std::invalid_argument("Стоп-слова содержат недопустимые символы."s);
     }
 }
 
 template <typename ExecutionPolicy, typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(ExecutionPolicy policy, const std::string_view raw_query, DocumentPredicate document_predicate) const {
-    //LOG_DURATION_STREAM("FindTopDocuments"s, std::cout);
     const Query query = ParseQuery(raw_query);
     if (!IsValidWord(raw_query)) {
         throw std::invalid_argument("Содержимое запроса содержит недопустимые символы"s);
@@ -204,7 +162,6 @@ template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindAllDocuments(std::execution::sequenced_policy, const SearchServer::Query& query,
     DocumentPredicate document_predicate) const {
     std::map<int, double> document_to_relevance;
-    //LOG_DURATION_STREAM("Циклы по + и - словам", cerr);
     for (const std::string_view word : query.plus_words) {
         if (word_to_document_freqs_.count(word) == 0) {
             continue;
@@ -243,15 +200,6 @@ std::vector<Document> SearchServer::FindAllDocuments(std::execution::parallel_po
         [&] (const std::string_view word) {
             if (word_to_document_freqs_.count(word) != 0) {
                 const double inverse_document_freq = ComputeWordInverseDocumentFreq(word);
-                // тут ForEach свой, т.к. у map двунаправленные итераторы, а не ПД (не пойму, в чем тут ошибка)
-                //ForEach(policy, word_to_document_freqs_.at(word), 
-                //    [this, &document_to_relevance, inverse_document_freq, document_predicate]
-                //        (const std::pair<int, double> relevance_doc) {
-                //            const auto& document_data = documents_.at(relevance_doc.first);
-                //            if (document_predicate(relevance_doc.first, document_data.status, document_data.rating)) {
-                //                document_to_relevance[relevance_doc.first] += relevance_doc.second * inverse_document_freq;
-                //            }
-                //    });
                 for_each(policy, word_to_document_freqs_.at(word).begin(), word_to_document_freqs_.at(word).end(),
                     [this, &document_to_relevance, inverse_document_freq, document_predicate]
                         (const std::pair<int, double> relevance_doc) {
