@@ -200,7 +200,7 @@ std::vector<Document> SearchServer::FindAllDocuments(std::execution::parallel_po
         [&] (const std::string_view word) {
             if (word_to_document_freqs_.count(word) != 0) {
                 const double inverse_document_freq = ComputeWordInverseDocumentFreq(word);
-                for_each(policy, word_to_document_freqs_.at(word).begin(), word_to_document_freqs_.at(word).end(),
+                for_each(word_to_document_freqs_.at(word).begin(), word_to_document_freqs_.at(word).end(),
                     [this, &document_to_relevance, inverse_document_freq, document_predicate]
                         (const std::pair<int, double> relevance_doc) {
                         const auto& document_data = documents_.at(relevance_doc.first);
