@@ -4,8 +4,7 @@
 using namespace std;
 
 SearchServer::SearchServer(const string& stop_words_text)
-    : SearchServer(SplitIntoWords(stop_words_text))  // Invoke delegating constructor from string container
-{
+    : SearchServer(SplitIntoWords(stop_words_text)) { // Invoke delegating constructor from string container
 }
 
 SearchServer::SearchServer(const string_view stop_words_text)
@@ -119,7 +118,7 @@ tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(execution
         [this, document_id](const string_view minus_word) {
             return word_to_document_freqs_.at(minus_word).count(document_id);
         })) {
-        return { {}, documents_.at(document_id).status };
+        return { vector<string_view>(), documents_.at(document_id).status };
     }
     vector<string_view> matched_words(query.plus_words.size());
 
@@ -146,7 +145,7 @@ tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(execution
         [this, document_id](const string_view minus_word) {
             return word_to_document_freqs_.at(minus_word).count(document_id);
         })) {
-        return { {}, documents_.at(document_id).status };
+        return { vector<string_view>(), documents_.at(document_id).status };
     }
     vector<string_view> matched_words(query.plus_words.size());
 
