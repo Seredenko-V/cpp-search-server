@@ -1,4 +1,5 @@
-D:\Уроки\Projects_Cpp\cpp-search-server\.vs
+build*
+*.user
 
 # Prerequisites
 *.d

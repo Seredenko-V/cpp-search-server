@@ -21,7 +21,7 @@ class ConcurrentMap {
         std::map<Key, Value> concurrent_map;
     };
 public:
-    static_assert(std::is_integral_v<Key>, "ConcurrentMap supports only integer keys"s);
+    static_assert(std::is_integral_v<Key>, "ConcurrentMap supports only integer keys");
 
     struct Access {
         Access(SubMap& sum_map, const Key key)

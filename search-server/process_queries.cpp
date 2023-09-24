@@ -23,6 +23,5 @@ list<Document> ProcessQueriesJoined(const SearchServer& search_server, const vec
 			documents.push_back(document);
 		}
 	}
-
 	return documents;
 }
