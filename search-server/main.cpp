@@ -49,5 +49,6 @@ int main() {
     test::test_policies::TestPolicies();
     test::TestFind();
     RunExample();
+    system("pause");
     return 0;
 }
