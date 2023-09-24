@@ -4,7 +4,7 @@
 using namespace std;
 
 SearchServer::SearchServer(const string& stop_words_text)
-    : SearchServer(SplitIntoWords(stop_words_text)) { // Invoke delegating constructor from string container
+    : SearchServer(SplitIntoWords(stop_words_text)) { // ¬ызвать делегирующий конструктор из контейнера string
 }
 
 SearchServer::SearchServer(const string_view stop_words_text)
@@ -15,11 +15,11 @@ void SearchServer::AddDocument(int document_id, const string_view document, Docu
     const vector<int>& ratings) {
     //LOG_DURATION_STREAM("ADD"s, cerr);
     if (documents_.count(document_id) > 0) {
-        throw invalid_argument("ƒокумент с таким id уже существует."s);
+        throw invalid_argument("A document with this ID already exists."s);
     } else if (document_id < 0) {
-        throw invalid_argument("ƒокумент не может иметь отрицательный id."s);
+        throw invalid_argument("A document cannot have a negative ID."s);
     } else if (!IsValidWord(document)) {
-        throw invalid_argument("—одержимое документа содержит недопустимые символы"s);
+        throw invalid_argument("The content of the document contains invalid characters."s);
     }
     const vector<string_view> words = SplitIntoWordsNoStop(document);
     const double inv_word_count = 1.0 / words.size();
@@ -67,7 +67,7 @@ void SearchServer::RemoveDocument(int document_id) {
 
 void SearchServer::RemoveDocument(execution::sequenced_policy, int document_id) {
     if (!documents_.count(document_id)) {
-        throw invalid_argument("ƒокумента с указанным id не существует.");
+        throw invalid_argument("There is no document with the specified ID.");
     }
     // log(количество документов) * количество слов в удал€емом документе, 
     // т.к. у каждого документа свой словарь
@@ -82,7 +82,7 @@ void SearchServer::RemoveDocument(execution::sequenced_policy, int document_id) 
 
 void SearchServer::RemoveDocument(execution::parallel_policy, int document_id) {
     if (!documents_.count(document_id)) {
-        throw invalid_argument("ƒокумента с указанным id не существует.");
+        throw invalid_argument("There is no document with the specified ID");
     }
     // дл€ распараллеливани€ for
     map<string, double, less<>>& frequency_word_in_each_document = word_frequencies_in_document_.at(document_id); // частоты слов в документе
@@ -111,7 +111,7 @@ tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(execution
     const string_view raw_query, int document_id) const {
     //LOG_DURATION_STREAM("MatchDocument"s, cout);
     if (document_id < 0 || word_frequencies_in_document_.count(document_id) == 0) {
-        throw out_of_range("ƒокумента с указанным id не существует.");
+        throw out_of_range("There is no document with the specified ID");
     }
     const Query query = ParseQuery(raw_query);
     if (any_of(policy, query.minus_words.begin(), query.minus_words.end(),
@@ -137,7 +137,7 @@ tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(execution
 tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(execution::parallel_policy policy,
     const string_view raw_query, int document_id) const {
     if (document_id < 0 || word_frequencies_in_document_.count(document_id) == 0) {
-        throw out_of_range("ƒокумента с указанным id не существует.");
+        throw out_of_range("There is no document with the specified ID");
     }
     Query query = ParseQuery(raw_query, false);
 
@@ -187,11 +187,11 @@ SearchServer::QueryWord SearchServer::ParseQueryWord(std::string_view text) cons
     bool is_minus = false;
     // Word shouldn't be empty
     if (text.empty()) {
-        throw invalid_argument("ѕрисутствует пустое слово в запросе.");
+        throw invalid_argument("There is an empty word in the query.");
     }
     if (text[0] == '-') {
         if (text[1] == '-') {
-            throw invalid_argument("«апрос содержит два знака \"-\" подр€д.");
+            throw invalid_argument("The request contains two \"-\" characters in a row.");
         }
         is_minus = true;
         text = text.substr(1);
@@ -203,10 +203,10 @@ SearchServer::Query SearchServer::ParseQuery(const string_view text, bool sequen
     Query query;
     for (const string_view word : SplitIntoWords(text)) {
         if (!IsValidWord(word)) {
-            throw invalid_argument("Ќекорректный поисковый запрос.");
+            throw invalid_argument("Invalid search query.");
         }
         if (word == "-"s) {
-            throw invalid_argument("ѕосле знака \"-\" отсутствует слово.");
+            throw invalid_argument("There is no word after the \"-\" sign.");
         }
         QueryWord query_word = ParseQueryWord(word);
         if (!query_word.is_stop) {
@@ -232,7 +232,7 @@ double SearchServer::ComputeWordInverseDocumentFreq(const string_view word) cons
 }
 
 bool SearchServer::IsValidWord(const string_view word) {
-    // A valid word must not contain special characters
+    // ƒопустимое слово не должно содержать специальных символов
     return none_of(word.begin(), word.end(), [](char c) {
         return c >= '\0' && c < ' ';
     });

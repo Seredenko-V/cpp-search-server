@@ -11,8 +11,7 @@ public:
 
     // "обёртки" для всех методов поиска, чтобы сохранять результаты для нашей статистики
     template <typename ExecutionPolicy, typename DocumentPredicate>
-    std::vector<Document> AddFindRequest(ExecutionPolicy policy, const std::string& raw_query, 
-        DocumentPredicate document_predicate);
+    std::vector<Document> AddFindRequest(ExecutionPolicy policy, const std::string& raw_query, DocumentPredicate document_predicate);
     template <typename ExecutionPolicy>
     std::vector<Document> AddFindRequest(ExecutionPolicy policy, const std::string& raw_query, DocumentStatus status);
     std::vector<Document> AddFindRequest(const std::string& raw_query);

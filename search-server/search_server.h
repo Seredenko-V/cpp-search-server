@@ -2,7 +2,6 @@
 #include "string_processing.h"
 #include "document.h"
 #include "concurrent_map.h"
-#include "log_duration.h"
 
 #include <stdexcept>
 #include <string>
@@ -28,12 +27,11 @@ class SearchServer {
 public:
     template <typename StringContainer>
     SearchServer(const StringContainer& stop_words);
-    // Invoke delegating constructor from string container
+    // Вызвать делегирующий конструктор из контейнера string
     explicit SearchServer(const std::string& stop_words_text);
     explicit SearchServer(const std::string_view stop_words_text);
 
-    void AddDocument(int document_id, const std::string_view document, DocumentStatus status,
-        const std::vector<int>& ratings);
+    void AddDocument(int document_id, const std::string_view document, DocumentStatus status, const std::vector<int>& ratings);
 
     template <typename ExecutionPolicy, typename DocumentPredicate>
     std::vector<Document> FindTopDocuments(ExecutionPolicy policy, const std::string_view raw_query, DocumentPredicate document_predicate) const;
@@ -115,7 +113,7 @@ SearchServer::SearchServer(const StringContainer& stop_words)
         return IsValidWord(word);
     });
     if (!is_valid_words) {
-        throw std::invalid_argument("Стоп-слова содержат недопустимые символы."s);
+        throw std::invalid_argument("Stop words contain invalid characters."s);
     }
 }
 
@@ -123,7 +121,7 @@ template <typename ExecutionPolicy, typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(ExecutionPolicy policy, const std::string_view raw_query, DocumentPredicate document_predicate) const {
     const Query query = ParseQuery(raw_query);
     if (!IsValidWord(raw_query)) {
-        throw std::invalid_argument("Содержимое запроса содержит недопустимые символы"s);
+        throw std::invalid_argument("The request content contains invalid characters."s);
     }
     std::vector<Document> matched_documents = FindAllDocuments(policy, query, document_predicate);
 

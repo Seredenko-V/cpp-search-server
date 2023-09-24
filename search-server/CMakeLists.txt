@@ -7,4 +7,4 @@ set(HEADERS concurrent_map.h document.h log_duration.h paginator.h process_queri
 
 set(SOURCES document.cpp process_queries.cpp read_input_functions.cpp remove_duplicates.cpp request_queue.cpp search_server.cpp string_processing.cpp)
 
-add_executable(SearchServer ${HEADERS} ${SOURCES} main.cpp)
+add_executable(SearchServer ${HEADERS} ${SOURCES} main.cpp tests.cpp tests.h)
