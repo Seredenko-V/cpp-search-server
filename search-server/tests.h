@@ -13,7 +13,6 @@
 namespace test {
     namespace test_policies {
         #define TEST(policy) Test(#policy, search_server, queries, execution::policy)
-
         std::string GenerateWord(std::mt19937& generator, int max_length);
 
         std::vector<std::string> GenerateDictionary(std::mt19937& generator, int word_count, int max_length);
@@ -37,4 +36,6 @@ namespace test {
 
         void TestPolicies();
     } // namespace test_policies
+
+    void TestFind();
 } // namespace test

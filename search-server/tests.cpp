@@ -7,6 +7,7 @@
 #include <vector>
 #include <cassert>
 #include <cmath>
+#include <functional>
 
 using namespace std;
 
@@ -79,4 +80,49 @@ namespace test {
             cerr << ">>> TestPolicies has been passed"sv << endl;
         }
     } // namespace test_policies
+
+    void TestFind() {
+        SearchServer search_server("and with"s);
+        int id = 0;
+        for (
+            const string& text : {
+                "white cat and yellow hat"s,
+                "curly cat curly tail"s,
+                "nasty dog with big eyes"s,
+                "nasty pigeon john"s,
+            }
+            ) {
+            search_server.AddDocument(++id, text, DocumentStatus::ACTUAL, { 1, 2 });
+        }
+        { // последовательная версия
+            const vector<Document> documents = search_server.FindTopDocuments("curly nasty cat"s);
+            assert(documents.size() == 4);
+            const vector<int> ids{2,4,1,3};
+            const vector<double> relevances{0.866434, 0.231049, 0.173287, 0.173287};
+            constexpr int kRating = 1;
+            for (size_t i = 0; i < documents.size(); ++i) {
+                assert(documents.at(i).id == ids.at(i));
+                assert(IsEqualDouble(documents.at(i).relevance, relevances.at(i)));
+                assert(documents.at(i).rating == kRating);
+            }
+        }{ // последовательная версия
+            const vector<Document> documents = search_server.FindTopDocuments(execution::seq, "curly nasty cat"s, DocumentStatus::BANNED);
+            assert(documents.empty());
+        }{ // параллельная версия
+            function<bool(int, DocumentStatus, int)> predicate = [](int document_id, DocumentStatus status, int rating) {
+                return document_id % 2 == 0;
+            };
+            const vector<Document> documents = search_server.FindTopDocuments(execution::par, "curly nasty cat"s, predicate);
+            assert(documents.size() == 2);
+            const vector<int> ids{2,4};
+            const vector<double> relevances{0.866434, 0.231049};
+            constexpr int kRating = 1;
+            for (size_t i = 0; i < documents.size(); ++i) {
+                assert(documents.at(i).id == ids.at(i));
+                assert(IsEqualDouble(documents.at(i).relevance, relevances.at(i)));
+                assert(documents.at(i).rating == kRating);
+            }
+        }
+        cerr << ">>> TestFind has been passed"sv << endl;
+    }
 } // namespace test

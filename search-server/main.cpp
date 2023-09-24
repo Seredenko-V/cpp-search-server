@@ -15,9 +15,7 @@ void PrintDocument(const Document& document) {
         << "rating = "s << document.rating << " }"s << endl;
 }
 
-int main() {
-    test::test_policies::TestPolicies();
-
+void RunExample() {
     SearchServer search_server("and with"s);
     int id = 0;
     for (
@@ -45,5 +43,11 @@ int main() {
     for (const Document& document : search_server.FindTopDocuments(execution::par, "curly nasty cat"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
         PrintDocument(document);
     }
+}
+
+int main() {
+    test::test_policies::TestPolicies();
+    test::TestFind();
+    RunExample();
     return 0;
 }
